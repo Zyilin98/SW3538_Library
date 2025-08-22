@@ -1,4 +1,5 @@
 #include "display.h"
+#include "SW3538.h"
 
 // 初始化OLED实例
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 3, /* data=*/ 4, /* reset=*/ U8X8_PIN_NONE);
@@ -26,7 +27,7 @@ void initOled() {
 }
 
 // 显示SW3538数据
-void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, float current2, float power, bool path1Online, bool path2Online, bool path1BuckStatus, bool path2BuckStatus) {
+void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, float current2, float power, bool path1Online, bool path2Online, bool path1BuckStatus, bool path2BuckStatus, SW3538_Data_t data) {
     // 检查通路状态是否发生变化（接入或断开）
     bool pathStatusChanged = (path1Online != lastPath1Online) || (path2Online != lastPath2Online);
     
@@ -56,10 +57,19 @@ void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, 
         // 左侧显示L和B（较小字号，不加粗）
         u8g2.setFont(u8g2_font_helvR08_tr);  // 较小字号
         if (path1Online) {
-            u8g2.drawStr(10, 18, "L");
+            u8g2.drawStr(2, 18, "L");
         }
         if (path1BuckStatus) {
-            u8g2.drawStr(10, 30, "B");
+            u8g2.drawStr(2, 30, "B");
+        }
+
+        // 显示第一通路快充状态 (Act或NoAct)
+        u8g2.setFont(u8g2_font_heisans_tr);  // 7px字号
+        bool fastChargeActive = data.fastChargeStatus;
+        if (fastChargeActive) {
+            u8g2.drawStr(12, 30, "Act");
+        } else {
+            u8g2.drawStr(12, 30, "NoAct");
         }
 
         // 显示通路一功率（增大字号并加粗）
@@ -89,11 +99,35 @@ void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, 
         // 左侧显示L和B（较小字号，不加粗）
         u8g2.setFont(u8g2_font_helvR08_tr);
         if (path2Online) {
-            u8g2.drawStr(10, 50, "L");
+            u8g2.drawStr(2, 50, "L");
         }
         if (path2BuckStatus) {
-            u8g2.drawStr(10, 62, "B");
+            u8g2.drawStr(2, 62, "B");
         }
+
+        // 显示第二通路具体快充协议
+        SW3538_FastChargeProtocol protocol = data.fastChargeProtocol;
+        String protocolStr;
+        switch (protocol) {
+            case SW3538_FC_NONE: protocolStr = "NONE"; break;
+            case SW3538_FC_QC2_0: protocolStr = "QC2.0"; break;
+            case SW3538_FC_QC3_0: protocolStr = "QC3.0"; break;
+            case SW3538_FC_QC3_PLUS: protocolStr = "QC3+"; break;
+            case SW3538_FC_FCP: protocolStr = "FCP"; break;
+            case SW3538_FC_SCP: protocolStr = "SCP"; break;
+            case SW3538_FC_PD_FIX: protocolStr = "PD-FIX"; break;
+            case SW3538_FC_PD_PPS: protocolStr = "PD-PPS"; break;
+            case SW3538_FC_PE1_1: protocolStr = "PE1.1"; break;
+            case SW3538_FC_PE2_0: protocolStr = "PE2.0"; break;
+            case SW3538_FC_VOOC1_0: protocolStr = "VOOC1"; break;
+            case SW3538_FC_VOOC4_0: protocolStr = "VOOC4"; break;
+            case SW3538_FC_SFCP: protocolStr = "SFCP"; break;
+            case SW3538_FC_AFC: protocolStr = "AFC"; break;
+            case SW3538_FC_TFCP: protocolStr = "TFCP"; break;
+            default: protocolStr = "UNKNOW"; break;
+        }
+        u8g2.setFont(u8g2_font_heisans_tr);  // 7px字号
+        u8g2.drawStr(12, 62, protocolStr.c_str());
 
         // 显示通路二功率（增大字号并加粗）
         u8g2.setFont(u8g2_font_helvR14_tr);

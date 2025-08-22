@@ -121,7 +121,8 @@ void loop() {
             // 更新OLED显示
             displaySw3538Data(inputVoltage, outputVoltage, current1, current2, power,
                              sw3538Data.path1Online, sw3538Data.path2Online,
-                             sw3538Data.path1BuckStatus, sw3538Data.path2BuckStatus);
+                             sw3538Data.path1BuckStatus, sw3538Data.path2BuckStatus,
+                             sw3538Data);
         } else {
             Serial.println("[ERROR] 数据读取失败");
         }
