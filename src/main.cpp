@@ -8,6 +8,7 @@
 #include <Wire.h>
 #include "SW3538.h"
 #include "global_data.h"
+#include "display.h"
 
 // SW3538实例
 SW3538 sw3538;
@@ -23,6 +24,11 @@ unsigned long getNonBlockingDelay(unsigned long lastTime, unsigned long interval
 
 void setup() {
     Serial.begin(115200);
+    
+    // 初始化OLED
+    initOled();
+    // 初始化防烧屏功能
+    updateLastAccessTime(); // 设置初始访问时间
     
     // 等待串口连接
     unsigned long startTime = millis();
@@ -50,6 +56,8 @@ void setup() {
     Serial.println("硬件配置:");
     Serial.println("SW3538 SDA: GPIO8");
     Serial.println("SW3538 SCL: GPIO9");
+    Serial.println("OLED SDA: GPIO8");
+    Serial.println("OLED SCL: GPIO9");
     Serial.println("I2C地址: 0x3C");
     Serial.println();
     
@@ -92,6 +100,8 @@ void setup() {
 }
 
 void loop() {
+    // 检查按钮状态
+    checkButtonState();
     // 非阻塞方式读取和显示数据
     if (getNonBlockingDelay(lastUpdateTime, UPDATE_INTERVAL)) {
         lastUpdateTime = millis();
@@ -99,6 +109,19 @@ void loop() {
         if (sw3538.readAllData()) {
             sw3538Data = sw3538.data;
             displaySerialData();
+            
+            // 计算显示所需数据
+            float inputVoltage = sw3538Data.inputVoltagemV / 1000.0;
+            float outputVoltage = sw3538Data.outputVoltagemV / 1000.0;
+            float current1 = sw3538Data.currentPath1mA / 1000.0;
+            float current2 = sw3538Data.currentPath2mA / 1000.0;
+            float totalCurrent = current1 + current2;
+            float power = outputVoltage * totalCurrent;
+            
+            // 更新OLED显示
+            displaySw3538Data(inputVoltage, outputVoltage, current1, current2, power,
+                             sw3538Data.path1Online, sw3538Data.path2Online,
+                             sw3538Data.path1BuckStatus, sw3538Data.path2BuckStatus);
         } else {
             Serial.println("[ERROR] 数据读取失败");
         }
@@ -109,6 +132,12 @@ void loop() {
         String command = Serial.readStringUntil('\n');
         command.trim();
         
+        // 任何串口命令都会唤醒OLED
+        updateLastAccessTime();
+        if (!isOledOn()) {
+            turnOnOled();
+        }
+
         if (command == "info") {
             displaySystemInfo();
         } else if (command == "raw") {
@@ -201,26 +230,22 @@ void displaySerialData() {
 
 // 显示系统信息
 void displaySystemInfo() {
-    Serial.println();
     Serial.println("系统信息:");
-    Serial.print("运行时间: ");
-    Serial.print(millis() / 1000);
-    Serial.println(" 秒");
-    
+    Serial.print("MCU: ESP32-C3");
+    Serial.print(" 时钟频率: ");
+    Serial.print(ESP.getCpuFreqMHz());
+    Serial.println("MHz");
     Serial.print("可用内存: ");
     Serial.print(ESP.getFreeHeap());
     Serial.println(" bytes");
-    
-    Serial.print("CPU频率: ");
-    Serial.print(ESP.getCpuFreqMHz());
-    Serial.println(" MHz");
-    
-    Serial.print("SW3538状态: ");
-    Serial.println(sw3538.testI2CAddress(0x3C) ? "正常" : "异常");
     Serial.println();
 }
 
-// 非阻塞延迟检查函数
+// 非阻塞延迟函数
 unsigned long getNonBlockingDelay(unsigned long lastTime, unsigned long interval) {
-    return (millis() - lastTime >= interval);
+    unsigned long currentTime = millis();
+    if (currentTime - lastTime >= interval) {
+        return currentTime;
+    }
+    return 0;
 }
