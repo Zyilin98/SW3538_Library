@@ -27,16 +27,14 @@ void initOled() {
 }
 // 函数定义已移至文件下方，此处删除重复定义
 // 显示SW3538数据
-void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, float current2, float power, bool path1Online, bool path2Online, bool path1BuckStatus, bool path2BuckStatus, SW3538_Data_t data) {
-    // 每次数据更新都重置防烧屏计时器
-    updateLastAccessTime();
-    
+void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, float current2, float power, bool path1Online, bool path2Online, bool path1BuckStatus, bool path2BuckStatus, SW3538_Data_t data) {    
     // 检查通路状态是否发生变化（接入或断开）
     bool pathStatusChanged = (path1Online != lastPath1Online) || (path2Online != lastPath2Online);
     
     // 如果通路状态变化（接入或断开），确保OLED已打开
     if (pathStatusChanged && !isOledOn()) {
         turnOnOled();
+        updateLastAccessTime(); // 更新最后访问时间
     }
     
     // 更新上一次通路状态
@@ -204,27 +202,15 @@ void initButton() {
 
 // 检查按钮状态
 void checkButtonState() {
-    static unsigned long lastButtonPress = 0;
-    static bool lastButtonState = HIGH;
-    bool currentButtonState = digitalRead(BUTTON_PIN);
-    
-    // 检查按钮是否被按下
-    if (currentButtonState != lastButtonState) {
-        lastButtonPress = millis();
-    }
-    
-    // 按钮按下超过50ms，确认按下（防抖处理）
-    if ((millis() - lastButtonPress > 50) && (currentButtonState != lastButtonState)) {
-        if (currentButtonState == LOW) {
-            // 按钮按下，切换OLED状态
-            if (isOledOn()) {
-                turnOffOled();
-            } else {
-                turnOnOled();
-                updateLastAccessTime();
-            }
+    // 读取按钮状态（低电平表示按下）
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        // 简单的防抖动
+        delay(50);
+        // 按钮被按下，点亮屏幕并更新最后操作时间
+        updateLastAccessTime();
+        if (!isOledOn()) {
+            turnOnOled();
         }
-        lastButtonState = currentButtonState;
     }
 }
 

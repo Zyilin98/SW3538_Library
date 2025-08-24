@@ -92,7 +92,7 @@ private:
     bool enableForceOperationWrite();
     bool enableADC(uint8_t adc_type);
     bool disableADC(uint8_t adc_type);
-    uint16_t readADCData(uint8_t adc_type);
+    uint16_t readADCData(uint8_t channel);
 };
 
 #endif

@@ -32,7 +32,7 @@
  * LOG_DEBUG("读取寄存器值: 0x" + String(value, HEX));  // 输出调试日志
  * LOG_ERROR("通信失败");  // 输出错误日志
  */
-// 定义调试日志级别
+// 定义调试日志级别 - 生产环境建议设置为 LOG_LEVEL_INFO 或 LOG_LEVEL_ERROR
 #define LOG_LEVEL_INFO    1
 #define LOG_LEVEL_WARNING 2
 #define LOG_LEVEL_DEBUG   3
@@ -161,7 +161,7 @@ uint8_t SW3538::readRegister(uint16_t reg) {
     // SW3538 uses 8-bit register addresses, not 16-bit
     uint8_t reg_addr = (uint8_t)(reg & 0xFF);
     
-    // Try up to 5 times with longer delays
+    // Try up to 5 times with exponential backoff
     for (int retry = 0; retry < 5; retry++) {
         // Clear any pending I2C state
         Wire.endTransmission(true);
@@ -172,7 +172,7 @@ uint8_t SW3538::readRegister(uint16_t reg) {
         int error = Wire.endTransmission(false); // Send address without stop condition
         if (error != 0) {
             LOG_ERROR("Attempt " + String(retry+1) + ": Failed to send register address (error: " + String(error) + ")");
-            delay(10 * (retry + 1)); // Exponential backoff delay
+            delay(10 * (1 << retry)); // Exponential backoff delay (10ms, 20ms, 40ms, 80ms, 160ms)
             continue;
         }
 
@@ -189,7 +189,7 @@ uint8_t SW3538::readRegister(uint16_t reg) {
             return value;
         } else {
             LOG_ERROR("Attempt " + String(retry+1) + ": No data available (received: " + String(bytesReceived) + ")");
-            delay(10 * (retry + 1)); // Exponential backoff delay
+            delay(10 * (1 << retry)); // Exponential backoff delay
         }
     }
 
@@ -314,33 +314,39 @@ bool SW3538::disableADC(uint8_t adc_type) {
     return true;
 }
 
-// Read 12-bit ADC data (Reg0x40, Reg0x41, Reg0x42)
-uint16_t SW3538::readADCData(uint8_t adc_type) {
-    LOG_DEBUG("Reading ADC data for type: " + String(adc_type));
+// Read ADC data according to datasheet (Reg0x41 and Reg0x42)
+uint16_t SW3538::readADCData(uint8_t channel) {
+    LOG_DEBUG("Reading ADC data for channel: " + String(channel));
 
-    // Configure ADC to latch data
-    if (!writeRegister(SW3538_REG_ADC_CONFIG, adc_type)) {
-        LOG_ERROR("Failed to configure ADC for type: " + String(adc_type));
+    // Select ADC channel - this latches the corresponding data to Reg0x41 and Reg0x42
+    // According to datasheet: Writing to this register latches ADC data to Reg0x41 and Reg0x42
+    if (!writeRegister(SW3538_REG_ADC_CONFIG, channel)) {
+        LOG_ERROR("Failed to select ADC channel: " + String(channel));
         return 0;
     }
-    delay(1); // Small delay for ADC conversion/latching
-    LOG_DEBUG("ADC conversion delay completed");
+    delay(5); // Sufficient delay for ADC conversion and data latching
+    LOG_DEBUG("ADC conversion and latching delay completed");
 
-    uint8_t low_byte = readRegister(SW3538_REG_ADC_DATA_LOW);
-    uint8_t high_byte = readRegister(SW3538_REG_ADC_DATA_HIGH);
-    LOG_DEBUG("ADC low byte: 0x" + String(low_byte, HEX));
-    LOG_DEBUG("ADC high byte: 0x" + String(high_byte, HEX));
+    // Read ADC data registers (0x41 = low 8 bits, 0x42 = high bits)
+    uint8_t low_byte = readRegister(SW3538_REG_ADC_DATA_LOW);    // 0x41
+    uint8_t high_byte = readRegister(SW3538_REG_ADC_DATA_HIGH);  // 0x42
+    LOG_DEBUG("ADC low byte (0x41): 0x" + String(low_byte, HEX));
+    LOG_DEBUG("ADC high byte (0x42): 0x" + String(high_byte, HEX));
 
-    // Combine bytes to form 12-bit or 15-bit data
-    // For 12-bit data (current, input voltage, NTC voltage), high_byte[3:0] are bits 11:8
-    // For 15-bit data (output voltage after unit conversion), high_byte[6:0] are bits 14:8
-    uint16_t adc_value;
-    if (adc_type == 11) { // Output voltage after unit conversion is 15-bit
-        adc_value = ((uint16_t)(high_byte & 0x7F) << 8) | low_byte; // Mask out bit 7 (reserved)
-        LOG_DEBUG("15-bit ADC value: " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
-    } else {
-        adc_value = ((uint16_t)(high_byte & 0x0F) << 8) | low_byte; // Mask out bits 7:4 (reserved)
-        LOG_DEBUG("12-bit ADC value: " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
+    // Combine bytes based on data type (according to datasheet)
+    uint16_t adc_value = 0;
+
+    if (channel == 11) { // Unit converted output voltage (14-bit)
+        // For channel 11: adc_data[14:08] in Reg0x42, adc_data[07:00] in Reg0x41
+        // 修正：高字节的低7位对应adc_data[14:08]，而不是6位
+        adc_value = ((uint16_t)(high_byte & 0x7F) << 8) | low_byte; // 14-bit resolution
+        adc_value &= 0xFFFF; // Mask to 14 bits
+        LOG_DEBUG("14-bit ADC value (channel 11): " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
+    } else { // Other channels (12-bit)
+        // For other channels: adc_data[11:08] in Reg0x42, adc_data[07:00] in Reg0x41
+        adc_value = ((uint16_t)(high_byte & 0x0F) << 8) | low_byte; // 12-bit resolution
+        adc_value &= 0x0FFF; // Mask to 12 bits
+        LOG_DEBUG("12-bit ADC value (channel " + String(channel) + "): " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
     }
 
     return adc_value;
@@ -430,27 +436,42 @@ bool SW3538::readAllData() {
 
     // Enable ADC for all required measurements
     // Note: VIN ADC is off by default, need to enable Reg0x18[6]
-    if (!enableADC(6)) {
+    // According to datasheet, ADC data selection corresponds to:
+    // 1: Latch path1 protocol current data idis1
+    // 2: Latch path2 protocol current data idis2
+    // 5: Latch output voltage data
+    // 6: Latch input voltage data
+    // 7: Latch NTC channel voltage data
+    // 11: Latch unit converted output voltage data
+    if (!enableADC(6)) {  // Enable input voltage ADC
         LOG_ERROR("Failed to enable VIN ADC sampling");
         return false;
     }
-    if (!enableADC(5)) {
+    if (!enableADC(5)) {  // Enable output voltage ADC
         LOG_ERROR("Failed to enable VOUT ADC sampling");
         return false;
     }
-    if (!enableADC(4)) {
+    if (!enableADC(2)) {  // Enable path2 current ADC
         LOG_ERROR("Failed to enable Path 2 Current ADC sampling");
         return false;
     }
-    if (!enableADC(3)) {
+    if (!enableADC(1)) {  // Enable path1 current ADC
         LOG_ERROR("Failed to enable Path 1 Current ADC sampling");
         return false;
     }
-    if (!enableADC(1)) {
+    if (!enableADC(7)) {  // Enable NTC ADC
         LOG_ERROR("Failed to enable NTC ADC sampling");
         return false;
     }
     LOG_INFO("All required ADC channels enabled");
+
+    // Enable VIN ADC (specifically required as per datasheet)
+    uint8_t reg_val = readRegister(0x18); // Read Reg0x18
+    reg_val |= (1 << 6); // Set bit 6 to enable VIN ADC
+    if (!writeRegister(0x18, reg_val)) {
+        LOG_ERROR("Failed to enable VIN ADC via Reg0x18");
+        return false;
+    }
 
     // Read Current Data (Path 1 & 2)
     data.currentPath1mA = readADCData(1) * 2.5; // 2.5mA/bit @5mOhm
@@ -466,14 +487,32 @@ bool SW3538::readAllData() {
 
     // Read NTC Temperature
     uint16_t ntc_voltage_adc = readADCData(7); // 1.2mV/bit
-    uint8_t ntc_current_state = readRegister(SW3538_REG_NTC_CURRENT_STATE) >> 7; // Bit 7
-    LOG_DEBUG("NTC Voltage ADC: " + String(ntc_voltage_adc) + " (" + String(ntc_voltage_adc * 1.2) + "mV)");
-    LOG_DEBUG("NTC Current State: " + String(ntc_current_state));
+    uint8_t ntc_current_state = readRegister(SW3538_REG_NTC_CURRENT_STATE) >> 7; // Bit 7: 0=20uA, 1=40uA
+    float ntc_voltage_mv = ntc_voltage_adc * 1.2; // Convert ADC value to voltage (1.2mV/bit)
+    LOG_DEBUG("NTC Voltage ADC: " + String(ntc_voltage_adc) + " (" + String(ntc_voltage_mv) + "mV)");
+    LOG_DEBUG("NTC Current State: " + String(ntc_current_state) + " (" + (ntc_current_state ? "40uA" : "20uA") + ")");
 
-    // NTC temperature calculation requires external NTC resistor value and B-constant
-    // This is a placeholder for actual NTC calculation
-    data.ntcTemperatureC = -999; // Placeholder: Requires NTC resistance vs. temperature data for accurate calculation
-    LOG_DEBUG("NTC Temperature: N/A (NTC curve needed)");
+    // Calculate NTC resistance
+    float ntc_current_ua = ntc_current_state ? 40.0f : 20.0f; // Current in uA
+    float ntc_resistance_kohm = (ntc_voltage_mv / ntc_current_ua); // R = V/I (V in mV, I in uA gives R in kOhm)
+    LOG_DEBUG("NTC Resistance: " + String(ntc_resistance_kohm) + "kOhm");
+
+    // Simplified NTC temperature calculation (using typical B-value of 3950 for 10k NTC)
+    // This is a basic implementation - for more accuracy, use a lookup table or full Steinhart-Hart equation
+    float ref_temp = 25.0f; // Reference temperature (°C)
+    float ref_resistance_kohm = 10.0f; // Reference resistance at 25°C (kOhm)
+    float b_value = 3950.0f; // B-value of the NTC thermistor
+
+    float temp_k = 1.0f / (1.0f / (ref_temp + 273.15f) + (1.0f / b_value) * log(ntc_resistance_kohm / ref_resistance_kohm));
+    data.ntcTemperatureC = temp_k - 273.15f;
+
+    // Validate temperature (should be within reasonable range)
+    if (data.ntcTemperatureC < -40 || data.ntcTemperatureC > 125) {
+        LOG_WARNING("NTC temperature out of range: " + String(data.ntcTemperatureC) + "°C");
+        data.ntcTemperatureC = -999; // Mark as invalid
+    } else {
+        LOG_DEBUG("NTC Temperature: " + String(data.ntcTemperatureC) + "°C");
+    }
 
     // Disable ADCs after reading
     if (!disableADC(6)) {
@@ -484,15 +523,15 @@ bool SW3538::readAllData() {
         LOG_ERROR("Failed to disable VOUT ADC sampling");
         return false;
     }
-    if (!disableADC(4)) {
+    if (!disableADC(2)) {
         LOG_ERROR("Failed to disable Path 2 Current ADC sampling");
         return false;
     }
-    if (!disableADC(3)) {
+    if (!disableADC(1)) {
         LOG_ERROR("Failed to disable Path 1 Current ADC sampling");
         return false;
     }
-    if (!disableADC(1)) {
+    if (!disableADC(7)) {
         LOG_ERROR("Failed to disable NTC ADC sampling");
         return false;
     }
