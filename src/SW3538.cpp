@@ -340,12 +340,10 @@ uint16_t SW3538::readADCData(uint8_t channel) {
         // For channel 11: adc_data[14:08] in Reg0x42, adc_data[07:00] in Reg0x41
         // 修正：高字节的低7位对应adc_data[14:08]，而不是6位
         adc_value = ((uint16_t)(high_byte & 0x7F) << 8) | low_byte; // 14-bit resolution
-        adc_value &= 0xFFFF; // Mask to 14 bits
         LOG_DEBUG("14-bit ADC value (channel 11): " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
     } else { // Other channels (12-bit)
         // For other channels: adc_data[11:08] in Reg0x42, adc_data[07:00] in Reg0x41
         adc_value = ((uint16_t)(high_byte & 0x0F) << 8) | low_byte; // 12-bit resolution
-        adc_value &= 0x0FFF; // Mask to 12 bits
         LOG_DEBUG("12-bit ADC value (channel " + String(channel) + "): " + String(adc_value) + " (0x" + String(adc_value, HEX) + ")");
     }
 
