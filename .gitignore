@@ -5,4 +5,5 @@
 .vscode/ipch
 SW3538 数据手册_Release_DS108_3_v1.2.pdf
 SW3538_寄存器列表__Release_RG108_3_v1.2.pdf
-main_oled.cpp
+.idea
+.gitignore

@@ -2,6 +2,36 @@
 #include "SW3538.h"
 #include <Wire.h>
 
+/*
+ * SW3538 驱动日志系统说明
+ * 
+ * 日志级别 (数字越小，级别越低，输出越少):
+ * - LOG_LEVEL_INFO (1): 基本信息日志，用于记录系统运行关键状态
+ *   例如：初始化过程、通信状态、数据读取结果等
+ * - LOG_LEVEL_WARNING (2): 警告日志，用于记录可能需要注意的情况
+ *   例如：读取到异常值、通信超时等不影响系统运行但需要关注的问题
+ * - LOG_LEVEL_DEBUG (3): 调试日志，用于开发和调试过程
+ *   例如：寄存器读写值、详细的状态变化、函数调用过程等
+ * - LOG_LEVEL_ERROR (4): 错误日志，用于记录系统错误
+ *   例如：通信失败、初始化失败等影响系统正常运行的问题
+ * 
+ * 使用方法:
+ * 1. 修改 CURRENT_LOG_LEVEL 宏定义来设置当前日志级别
+ *    - 开发调试阶段: 建议设置为 LOG_LEVEL_DEBUG
+ *    - 生产运行阶段: 建议设置为 LOG_LEVEL_INFO 或 LOG_LEVEL_ERROR
+ * 2. 使用对应的日志宏输出不同级别的日志:
+ *    - LOG_INFO(message): 输出信息日志，包含[INFO]标识和函数名
+ *    - LOG_WARNING(message): 输出警告日志，包含[WARNING]标识和函数名
+ *    - LOG_DEBUG(message): 输出调试日志，包含[DEBUG]标识和函数名
+ *    - LOG_ERROR(message): 输出错误日志，包含[ERROR]标识和函数名
+ * 3. 日志会自动包含函数名和日志级别标识，方便定位问题
+ * 
+ * 示例:
+ * LOG_INFO("初始化成功");  // 输出信息日志
+ * LOG_WARNING("电压超出正常范围");  // 输出警告日志
+ * LOG_DEBUG("读取寄存器值: 0x" + String(value, HEX));  // 输出调试日志
+ * LOG_ERROR("通信失败");  // 输出错误日志
+ */
 // 定义调试日志级别
 #define LOG_LEVEL_INFO    1
 #define LOG_LEVEL_WARNING 2
