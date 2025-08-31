@@ -12,6 +12,7 @@ public:
     void setBackoff(uint8_t k) { _backoff = k; }
     void setMaxInterval(uint32_t ms) { _maxInterval = ms; }  // 设置最大延时
     void updateCurrent(float i_ma); // 更新电流并自适应调整扫描周期
+    void updateState(bool fastChargeStatus, bool path1Online, bool path2Online); // 多维状态检测
     
     // 调试和状态获取函数
     uint32_t getCurrentInterval() const { return _interval; }
@@ -27,6 +28,11 @@ private:
     uint8_t  _stableCnt = 0;
     uint8_t  _backoff = 2;
     uint32_t _maxInterval = 4000;  // 默认最大延时10秒
+    
+    // 状态跟踪变量
+    bool _lastFastChargeStatus = false;
+    bool _lastPath1Online = false;
+    bool _lastPath2Online = false;
 };
 
 #endif

@@ -54,7 +54,7 @@ void setup() {
     }
     // 初始化自适应扫描
     aScan.begin();
-    aScan.setEpsilon(30);
+    aScan.setEpsilon(50);
 }
 
 void loop() {
@@ -70,7 +70,10 @@ void loop() {
             sw3538.printAllData(Serial);
             float total_ma = sw3538.data.currentPath1mA +
                              sw3538.data.currentPath2mA;
-            aScan.updateCurrent(total_ma); // 自适应调周期
+            aScan.updateCurrent(total_ma); // 电流变化检测
+            aScan.updateState(sw3538.data.fastChargeStatus, 
+                             sw3538.data.path1Online, 
+                             sw3538.data.path2Online); // 多维状态检测
             
             // 更新全局数据
             sw3538Data = sw3538.data;
