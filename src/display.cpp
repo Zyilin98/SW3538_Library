@@ -10,6 +10,7 @@
 
 #include "display.h"
 #include "SW3538.h"
+#include "global_data.h"
 
 // 初始化OLED实例
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 3, /* data=*/ 4, /* reset=*/ U8X8_PIN_NONE);
@@ -35,12 +36,14 @@ void initOled() {
     u8g2.sendBuffer();
 }
 
-// 显示SW3538数据 - 优化实现
-void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, 
-                      float current2, float power, bool path1Online, bool path2Online, 
-                      bool path1BuckStatus, bool path2BuckStatus, SW3538_Data_t data) {
+// 显示SW3538数据 - 使用预计算的全局显示数据
+void displaySw3538Data() {
+    // 直接使用SW3538驱动提供的通路状态
+    bool path1Online = sw3538Data.path1Online;
+    bool path2Online = sw3538Data.path2Online;
+    bool path1BuckStatus = sw3538Data.path1BuckStatus;
+    bool path2BuckStatus = sw3538Data.path2BuckStatus;
     
-    // 检查通路状态变化
     bool pathStatusChanged = (path1Online != lastPath1Online) || 
                             (path2Online != lastPath2Online);
     
@@ -65,7 +68,7 @@ void displaySw3538Data(float inputVoltage, float outputVoltage, float current1,
         
         // 快充状态
         u8g2.setFont(u8g2_font_heisans_tr);
-        if (data.fastChargeStatus) {
+        if (sw3538Data.fastChargeStatus) {
             u8g2.drawStr(12, 30, "Fast");
         } else {
             u8g2.drawStr(12, 30, "  ");
@@ -73,18 +76,18 @@ void displaySw3538Data(float inputVoltage, float outputVoltage, float current1,
         
         // 第一通路功率
         u8g2.setFont(u8g2_font_helvR14_tr);
-        float power1 = current1 * outputVoltage;
+        float power1 = displayData.current1 * displayData.outputVoltage;
         snprintf(buf, sizeof(buf), "%.1fW", power1);
         int width = u8g2.getStrWidth(buf);
         u8g2.drawStr(88 - width, 24, buf);
         
         // 第一通路电压电流
         u8g2.setFont(u8g2_font_helvR08_tr);
-        snprintf(buf, sizeof(buf), "%.2fV", outputVoltage);
+        snprintf(buf, sizeof(buf), "%.2fV", displayData.outputVoltage);
         width = u8g2.getStrWidth(buf);
         u8g2.drawStr(126 - width, 18, buf);
         
-        snprintf(buf, sizeof(buf), "%.2fA", current1);
+        snprintf(buf, sizeof(buf), "%.2fA", displayData.current1);
         width = u8g2.getStrWidth(buf);
         u8g2.drawStr(126 - width, 30, buf);
         
@@ -95,29 +98,29 @@ void displaySw3538Data(float inputVoltage, float outputVoltage, float current1,
         
         // 快充协议
         u8g2.setFont(u8g2_font_heisans_tr);
-        u8g2.drawStr(12, 62, SW3538::getProtocolName(data.fastChargeProtocol));
+        u8g2.drawStr(12, 62, SW3538::getProtocolName(sw3538Data.fastChargeProtocol));
         
         // 第二通路功率
         u8g2.setFont(u8g2_font_helvR14_tr);
-        float power2 = current2 * outputVoltage;
+        float power2 = displayData.current2 * displayData.outputVoltage;
         snprintf(buf, sizeof(buf), "%.1fW", power2);
         width = u8g2.getStrWidth(buf);
         u8g2.drawStr(88 - width, 56, buf);
         
         // 第二通路电压电流
         u8g2.setFont(u8g2_font_helvR08_tr);
-        snprintf(buf, sizeof(buf), "%.2fV", outputVoltage);
+        snprintf(buf, sizeof(buf), "%.2fV", displayData.outputVoltage);
         width = u8g2.getStrWidth(buf);
         u8g2.drawStr(126 - width, 50, buf);
         
-        snprintf(buf, sizeof(buf), "%.2fA", current2);
+        snprintf(buf, sizeof(buf), "%.2fA", displayData.current2);
         width = u8g2.getStrWidth(buf);
         u8g2.drawStr(126 - width, 62, buf);
         
         u8g2.sendBuffer();
     }
     
-    checkOledTimeout();
+    
 }
 
 // OLED控制函数 - 保持简单
@@ -157,6 +160,7 @@ void checkButtonState() {
         updateLastAccessTime();
         if (!isOledOn()) {
             turnOnOled();
+            displaySw3538Data();
         }
     }
 }

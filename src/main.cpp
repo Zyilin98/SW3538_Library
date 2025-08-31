@@ -3,13 +3,11 @@
 #include "SW3538.h"
 #include "global_data.h"
 #include "display.h"
+#include "adaptive_scan.h"
 
 // SW3538实例
 SW3538 sw3538;
-
-// 非阻塞定时变量
-const unsigned long UPDATE_INTERVAL = 1000; // 1秒更新间隔
-unsigned long lastUpdateTime = 0;
+AdaptiveScan aScan;
 
 // 函数声明
 void displaySerialData();
@@ -47,50 +45,43 @@ void setup() {
         // 读取初始数据
         if (sw3538.readAllData()) {
             Serial.println("初始数据读取成功");
+            // 初始化显示数据
+            sw3538Data = sw3538.data;
+            updateDisplayData(sw3538Data);
         } else {
             Serial.println("初始数据读取失败");
         }
     }
-
+    // 初始化自适应扫描
+    aScan.begin();
+    aScan.setEpsilon(30);
 }
 
 void loop() {
     // 检查按钮状态
     checkButtonState();
-    // 非阻塞方式读取和显示数据
-    if (getNonBlockingDelay(lastUpdateTime, UPDATE_INTERVAL)) {
-        lastUpdateTime = millis();
+    checkOledTimeout();
+    // 自适应方式读取和显示数据
+    if (aScan.tick()){
         
         // 读取SW3538数据
         if (sw3538.readAllData()) {
             // 调用SW3538驱动内的串口日志打印功能
             sw3538.printAllData(Serial);
+            float total_ma = sw3538.data.currentPath1mA +
+                             sw3538.data.currentPath2mA;
+            aScan.updateCurrent(total_ma); // 自适应调周期
             
-            // 计算显示所需数据
+            // 更新全局数据
             sw3538Data = sw3538.data;
-            float inputVoltage = sw3538Data.inputVoltagemV / 1000.0;
-            float outputVoltage = sw3538Data.outputVoltagemV / 1000.0;
-            float current1 = sw3538Data.currentPath1mA / 1000.0;
-            float current2 = sw3538Data.currentPath2mA / 1000.0;
-            float totalCurrent = current1 + current2;
-            float power = outputVoltage * totalCurrent;
+            
+            // 计算并存储显示数据
+            updateDisplayData(sw3538Data);
             
             // 更新OLED显示
-            displaySw3538Data(inputVoltage, outputVoltage, current1, current2, power,
-                             sw3538Data.path1Online, sw3538Data.path2Online,
-                             sw3538Data.path1BuckStatus, sw3538Data.path2BuckStatus,
-                             sw3538Data);
+            displaySw3538Data();
         } else {
             Serial.println("[ERROR] 数据读取失败");
         }
     }
-}
-
-// 非阻塞延迟函数
-unsigned long getNonBlockingDelay(unsigned long lastTime, unsigned long interval) {
-    unsigned long currentTime = millis();
-    if (currentTime - lastTime >= interval) {
-        return currentTime;
-    }
-    return 0;
 }

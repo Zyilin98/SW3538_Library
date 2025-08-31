@@ -23,9 +23,13 @@ extern U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2;
 void initButton();
 void checkButtonState();
 void initOled();
-void displaySw3538Data(float inputVoltage, float outputVoltage, float current1, 
-                      float current2, float power, bool path1Online, bool path2Online, 
-                      bool path1BuckStatus, bool path2BuckStatus, SW3538_Data_t data);
+/**
+ * @brief 显示SW3538数据
+ * 
+ * 使用预计算的全局显示数据刷新OLED显示
+ * 显示内容包括电压、电流、功率、快充状态等信息
+ */
+void displaySw3538Data();
 void turnOnOled();
 void turnOffOled();
 bool isOledOn();
