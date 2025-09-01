@@ -32,9 +32,11 @@ void setup() {
     Serial.print(ESP.getFreeHeap());
     Serial.println(" bytes");
     Serial.println();
-    
+
+
     // 初始化SW3538
     Serial.println("初始化SW3538...");
+    SW3538 sw3538(0x3C, 2, 1);    // 自定义I2C引脚
     sw3538.begin();
     
     // 测试通信
@@ -121,7 +123,8 @@ void loop() {
             
             // 步骤7：刷新OLED显示
             displaySw3538Data();
-            
+            pluginCheck();
+
         } else {
             // 错误处理：数据读取失败
             Serial.println("[ERROR] 数据读取失败");

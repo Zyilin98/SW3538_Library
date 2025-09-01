@@ -19,8 +19,15 @@
 #include <Wire.h>
 
 // 构造函数 - 简化实现
-SW3538::SW3538(uint8_t address) : _address(address) {
+SW3538::SW3538(uint8_t address) : _address(address), _sdaPin(-1), _sclPin(-1), _useCustomPins(false) {
     SW3538_LOG_VAL("SW3538 init addr: 0x", address);
+}
+
+// 支持自定义I2C引脚的构造函数
+SW3538::SW3538(uint8_t address, int sdaPin, int sclPin) : _address(address), _sdaPin(sdaPin), _sclPin(sclPin), _useCustomPins(true) {
+    SW3538_LOG_VAL("SW3538 init addr: 0x", address);
+    SW3538_LOG_VAL("SDA pin: ", sdaPin);
+    SW3538_LOG_VAL("SCL pin: ", sclPin);
 }
 
 // 测试I2C地址 - 使用char数组替代String
@@ -72,7 +79,18 @@ void SW3538::scanI2CAddresses() {
 void SW3538::begin() {
     SW3538_LOG("SW3538 init");
     
-    Wire.begin();
+    // 根据是否使用自定义引脚来初始化I2C
+    if (_useCustomPins) {
+        // 使用自定义SDA/SCL引脚
+        Wire.begin(_sdaPin, _sclPin);
+        SW3538_LOG_VAL("I2C started with custom pins - SDA: ", _sdaPin);
+        SW3538_LOG_VAL("SCL: ", _sclPin);
+    } else {
+        // 使用默认引脚
+        Wire.begin();
+        SW3538_LOG("I2C started with default pins");
+    }
+    
     Wire.setClock(100000);
     
     uint8_t version = readRegister(SW3538_REG_VERSION);

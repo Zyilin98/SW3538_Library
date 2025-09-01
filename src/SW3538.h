@@ -84,6 +84,7 @@ class SW3538 {
 public:
     // 构造函数
     SW3538(uint8_t address = SW3538_DEFAULT_ADDRESS);
+    SW3538(uint8_t address, int sdaPin, int sclPin);
     
     // 基本功能
     void begin();
@@ -115,6 +116,9 @@ public:
 
 private:
     uint8_t _address;
+    int _sdaPin;
+    int _sclPin;
+    bool _useCustomPins;
     
     // 私有方法
     uint8_t readRegister(uint16_t reg);

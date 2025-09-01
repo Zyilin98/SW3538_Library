@@ -35,5 +35,5 @@ void turnOffOled();
 bool isOledOn();
 void updateLastAccessTime();
 void checkOledTimeout();
-
+void pluginCheck();
 #endif // DISPLAY_H

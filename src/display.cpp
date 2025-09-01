@@ -38,22 +38,11 @@ void initOled() {
 
 // 显示SW3538数据 - 使用预计算的全局显示数据
 void displaySw3538Data() {
-    // 直接使用SW3538驱动提供的通路状态
+    // 实时获取最新的通路状态和buck状态
     bool path1Online = sw3538Data.path1Online;
     bool path2Online = sw3538Data.path2Online;
     bool path1BuckStatus = sw3538Data.path1BuckStatus;
     bool path2BuckStatus = sw3538Data.path2BuckStatus;
-    
-    bool pathStatusChanged = (path1Online != lastPath1Online) || 
-                            (path2Online != lastPath2Online);
-    
-    if (pathStatusChanged && !isOledOn()) {
-        turnOnOled();
-        updateLastAccessTime();
-    }
-    
-    lastPath1Online = path1Online;
-    lastPath2Online = path2Online;
     
     if (oledStatus) {
         u8g2.clearBuffer();
@@ -119,8 +108,6 @@ void displaySw3538Data() {
         
         u8g2.sendBuffer();
     }
-    
-    
 }
 
 // OLED控制函数 - 保持简单
@@ -131,6 +118,7 @@ void turnOnOled() {
         u8g2.clearBuffer();
         u8g2.sendBuffer();
         displaySw3538Data();
+        Serial.println("[Debug]Turn on the OLED");
     }
 }
 
@@ -140,6 +128,7 @@ void turnOffOled() {
         u8g2.sendBuffer();
         u8g2.setPowerSave(1);
         oledStatus = false;
+        Serial.println("[Debug]Turn off the OLED");
     }
 }
 
@@ -176,6 +165,7 @@ void checkButtonState() {
             updateLastAccessTime();
             if (!isOledOn()) {
                 turnOnOled();
+                Serial.println("[Debug]Button press-Turn on the OLED");
             }
         } else if (currentButtonState == !LOW) {
             // 按钮释放，重置确认状态
@@ -189,5 +179,25 @@ void checkButtonState() {
 void checkOledTimeout() {
     if (oledStatus && (millis() - lastAccessTime > SCREEN_OFF_TIMEOUT)) {
         turnOffOled();
+        Serial.println("[Debug]Timeout-Turn off the OLED");
     }
+}
+void pluginCheck() {
+    // 实时获取最新的通路状态
+    bool currentPath1Online = sw3538Data.path1Online;
+    bool currentPath2Online = sw3538Data.path2Online;
+    
+    // 检查通路状态是否发生变化
+    bool pathStatusChanged = (currentPath1Online != lastPath1Online) || 
+                            (currentPath2Online != lastPath2Online);
+    
+    if (pathStatusChanged && !isOledOn()) {
+        turnOnOled();
+        updateLastAccessTime();
+        Serial.println("[Debug]Plugin check-Turn on the OLED");
+    }
+    
+    // 更新上一次的状态记录
+    lastPath1Online = currentPath1Online;
+    lastPath2Online = currentPath2Online;
 }

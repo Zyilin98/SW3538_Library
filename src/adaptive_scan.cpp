@@ -24,10 +24,15 @@ void AdaptiveScan::begin() {
  * 
  * @return true 应该执行扫描
  * @return false 继续等待
- */
+ */// 检查是否应该执行扫描
 bool AdaptiveScan::tick() {
     if (millis() - _lastTick < _interval) return false;
     _lastTick = millis();  // 更新时间戳
+    
+    // 打印当前刷新间隔（调试信息）
+    Serial.print("[AdaptiveScan] Current interval: ");
+    Serial.print(_interval);
+    Serial.println("ms");
     return true;
 }
 
