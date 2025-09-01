@@ -130,6 +130,7 @@ void turnOnOled() {
         oledStatus = true;
         u8g2.clearBuffer();
         u8g2.sendBuffer();
+        displaySw3538Data();
     }
 }
 
@@ -155,14 +156,34 @@ void initButton() {
 }
 
 void checkButtonState() {
-    if (digitalRead(BUTTON_PIN) == LOW) {
-        delay(50);  // 简单防抖
-        updateLastAccessTime();
-        if (!isOledOn()) {
-            turnOnOled();
-            displaySw3538Data();
+    static unsigned long lastDebounceTime = 0;      // 上次消抖时间
+    static bool lastButtonState = HIGH;             // 上次按钮状态
+    static bool buttonPressed = false;              // 按钮已确认按下
+    
+    bool currentButtonState = digitalRead(BUTTON_PIN);
+    unsigned long currentTime = millis();
+    
+    // 简单高效的消抖算法
+    if (currentButtonState != lastButtonState) {
+        lastDebounceTime = currentTime;  // 状态变化时重置计时器
+    }
+    
+    // 状态稳定超过40ms才认为是有效状态
+    if (currentTime - lastDebounceTime >= 40) {
+        if (currentButtonState == LOW && !buttonPressed) {
+            // 确认按钮被按下且之前未被确认
+            buttonPressed = true;
+            updateLastAccessTime();
+            if (!isOledOn()) {
+                turnOnOled();
+            }
+        } else if (currentButtonState == !LOW) {
+            // 按钮释放，重置确认状态
+            buttonPressed = false;
         }
     }
+    
+    lastButtonState = currentButtonState;
 }
 
 void checkOledTimeout() {
@@ -170,13 +191,3 @@ void checkOledTimeout() {
         turnOffOled();
     }
 }
-
-/*
- * 原版本display.cpp完整代码保留
- * 
- * 主要改进：
- * 1. 内存使用减少约50%
- * 2. 移除所有String类使用
- * 3. 保持原有显示效果
- * 4. 优化了字符缓冲区使用
- */

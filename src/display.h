@@ -37,12 +37,3 @@ void updateLastAccessTime();
 void checkOledTimeout();
 
 #endif // DISPLAY_H
-
-/*
- * 原版本display.h完整保留
- * 
- * 主要改进：
- * 1. 移除不必要的String依赖
- * 2. 保持所有接口不变
- * 3. 优化包含关系
- */

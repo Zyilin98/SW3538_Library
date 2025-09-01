@@ -127,20 +127,3 @@ private:
 };
 
 #endif // SW3538_H
-
-/*
- * 原版本SW3538.h完整保留：
- * 
- * 原版本包含完整的String类使用、复杂日志系统、详细注释等
- * 新版本保持100%功能兼容，但实现了以下优化：
- * 
- * 1. 内存优化：移除String类，减少内存碎片
- * 2. 性能优化：简化日志系统，减少运行时开销
- * 3. 接口优化：添加静态方法getProtocolName()，避免String返回
- * 4. 调试优化：简单开关控制调试信息
- * 5. 兼容性：所有原有接口保持不变
- * 
- * 使用示例：
- * const char* protocol = SW3538::getProtocolName(data.fastChargeProtocol);
- * 替代原来的：String protocol = sw3538.getFastChargeProtocolString(data.fastChargeProtocol);
- */

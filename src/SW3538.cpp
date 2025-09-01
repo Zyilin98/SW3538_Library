@@ -306,22 +306,3 @@ bool SW3538::setNTCOverTempThreshold(uint8_t threshold_setting) {
     reg_val = (reg_val & 0xC7) | (threshold_setting << 3);
     return writeRegister(SW3538_REG_TEMP_SETTING, reg_val);
 }
-
-/*
- * 原版本SW3538.cpp完整代码保留如下：
- * 
- * 原代码包含完整的String类使用、复杂日志系统、详细注释等
- * 所有功能在新版本中均已实现，但使用了更高效的实现方式
- * 
- * 主要改进：
- * 1. 内存使用减少约60%
- * 2. 栈使用减少约40%
- * 3. 执行效率提升约25%
- * 4. 代码体积减少约35%
- * 
- * 修复的问题：
- * 1. ADC通道选择逻辑错误
- * 2. 温度计算精度问题
- * 3. I2C通信超时处理
- * 4. 数据有效性检查
- */
